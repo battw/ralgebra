@@ -1,7 +1,8 @@
 #lang racket
 
 (define commutative-ops '(+ *))
-(define distributive-ops '((* . +)))
+(define left-distributive-ops '((* . +)))
+(define right-distributive-ops '((* . +)))
 (define associative-ops '(+ *))
 (define left-identities '((+ . 0) (* . 1)))
 
@@ -12,16 +13,26 @@
      (list op b a)]
     [_ (list 'does-not-commute expr)]))
 
-(define (distribute expr)
+(define (left-distribute expr)
     (match expr
       [`(,op1 ,a (,op2 ,b ,c))
-       #:when (member (cons op1 op2) distributive-ops)
+       #:when (member (cons op1 op2) left-distributive-ops)
        (list op2 (list op1 a b) (list op1 a c))]
       [`(,op1 (,op2 ,a ,b) (,op2 ,a ,c))
-       #:when (member (cons op2 op1) distributive-ops)
+       #:when (member (cons op2 op1) left-distributive-ops)
        (list op2 a (list op1 b c))]
       [_ (list 'does-not-distribute expr)]))
 
+
+(define (right-distribute expr)
+    (match expr
+      [`(,op1 (,op2 ,a ,b) ,c)
+       #:when (member (cons op1 op2) right-distributive-ops)
+       (list op2 (list op1 a c) (list op1 b c))]
+      [`(,op2 (,op1 ,a ,c) (,op1 ,b ,c))
+       #:when (member (cons op1 op2) right-distributive-ops)
+       (list op1 (list op2 a b) c)]
+      [_ (list 'does-not-distribute expr)]))
 
 (define (associate expr)
   (match expr
@@ -36,9 +47,14 @@
 (define (left-identity expr)
   (match expr
     [`(,op, id ,sub)
-     #:when (member (cons op id) left-identities) sub]
+     #:when (member (cons id op) left-identities) sub]
     [_ (list 'isnt-left-identity expr)]))
 
+(define (right-identity expr)
+  (match expr
+    [`(,op ,sub, id)
+     #:when (member (cons op id) left-identities) sub]
+    [_ (list 'isnt-left-identity expr)]))
   
 ;; recurse and reconstruct (template for other functions)
 (define (f expr)
@@ -67,11 +83,17 @@
 (define (com expr i)
   (apply commute expr i))
 
-(define (dis expr i)
-  (apply distribute expr i))
+(define (ldis expr i)
+  (apply left-distribute expr i))
+
+(define (rdis expr i)
+  (apply right-distribute expr i))
 
 (define (ass expr i)
   (apply associate expr i))
 
 (define (lid expr i)
   (apply left-identity expr i))
+
+(define (rid expr i)
+  (apply right-identity expr i))
