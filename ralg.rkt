@@ -5,13 +5,23 @@
 (define right-distributive-ops '((* . +)))
 (define associative-ops '(+ *))
 (define left-identities '((+ . 0) (* . 1)))
+(define right-identities '((+ . 0) (* . 1)))
+(define left-inverses '(
+                        (+ . ((lambda (a) (list '- a)) . 0))
+                        (* . ((lambda (a) (list '/ 1 a)) . 1))
+                        ))
+(define right-inverses '(
+                         (+ . ((lambda (a) (list '- a)) . 0))
+                         (* . ((lambda (a) (list '/ 1 a)) . 1))
+                         ))
 
 (define (commute expr)
   (match expr
     [`(,op ,a ,b)
      #:when (member op commutative-ops)
      (list op b a)]
-    [_ (list 'does-not-commute expr)]))
+    [_ (list 'does-not-commute expr)]
+    ))
 
 (define (left-distribute expr)
     (match expr
@@ -21,7 +31,8 @@
       [`(,op1 (,op2 ,a ,b) (,op2 ,a ,c))
        #:when (member (cons op2 op1) left-distributive-ops)
        (list op2 a (list op1 b c))]
-      [_ (list 'does-not-distribute expr)]))
+      [_ (list 'does-not-distribute expr)]
+      ))
 
 
 (define (right-distribute expr)
@@ -32,7 +43,8 @@
       [`(,op2 (,op1 ,a ,c) (,op1 ,b ,c))
        #:when (member (cons op1 op2) right-distributive-ops)
        (list op1 (list op2 a b) c)]
-      [_ (list 'does-not-distribute expr)]))
+      [_ (list 'does-not-distribute expr)]
+      ))
 
 (define (associate expr)
   (match expr
@@ -42,20 +54,41 @@
     [`(,op (,op ,a ,b) ,c)
      #:when (member op associative-ops)
      (list op a (list op b c))]
-    [_ (list 'does-not-associate expr)]))
+    [_ (list 'does-not-associate expr)]
+    ))
 
 (define (left-identity expr)
   (match expr
     [`(,op, id ,sub)
      #:when (member (cons id op) left-identities) sub]
-    [_ (list 'isnt-left-identity expr)]))
+    [_ (list 'isnt-left-identity expr)]
+    ))
 
 (define (right-identity expr)
   (match expr
     [`(,op ,sub, id)
-     #:when (member (cons op id) left-identities) sub]
-    [_ (list 'isnt-left-identity expr)]))
+     #:when (member (cons op id) right-identities) sub]
+    [_ (list 'isnt-right-identity expr)]
+    ))
+
+(define (left-inverse expr)
+  (match expr
+    [`(,op ,inv ,a)
+     #:when (equal? ((eval (cadr (assoc op left-inverses))) a)
+                    inv)
+     (cddr (assoc op left-inverses))]
+    [_ (list 'isnt-left-inverse expr)]
+    ))
   
+(define (right-inverse expr)
+  (match expr
+    [`(,op ,a ,inv)
+     #:when (equal? ((eval (cadr (assoc op left-inverses))) a)
+                    inv)
+     (cddr (assoc op left-inverses))]
+    [_ (list 'isnt-right-inverse expr)]
+    ))
+
 ;; recurse and reconstruct (template for other functions)
 (define (f expr)
   (if (not (list? expr))
@@ -71,7 +104,8 @@
     [else
      (match expr [`(,op ,l ,r) (list op
                                      (apply rule  l (- i 1))
-                                     (apply rule r (- (- i 1) (size l))))])]))
+                                     (apply rule r (- (- i 1) (size l)))
+                                     )])]))
 
 (define (size expr)
   ;; number of operators
@@ -97,3 +131,10 @@
 
 (define (rid expr i)
   (apply right-identity expr i))
+
+(define (linv expr i)
+  (apply left-inverse expr i))
+
+(define (rinv expr i)
+  (apply right-inverse expr i))
+
