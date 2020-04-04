@@ -6,13 +6,15 @@
 (define associative-ops '(+ *))
 (define left-identities '((+ . 0) (* . 1)))
 (define right-identities '((+ . 0) (* . 1)))
+;; lists of
+;; (operation function-giving-the-inverse-of-its-input resulting-identity)
 (define left-inverses '(
-                        (+ . ((lambda (a) (list '- a)) . 0))
-                        (* . ((lambda (a) (list '/ 1 a)) . 1))
+                        (+  (lambda (a) (list '- a))  0)
+                        (*  (lambda (a) (list '/ 1 a))  1)
                         ))
 (define right-inverses '(
-                         (+ . ((lambda (a) (list '- a)) . 0))
-                         (* . ((lambda (a) (list '/ 1 a)) . 1))
+                         (+  (lambda (a) (list '- a))  0)
+                         (*  (lambda (a) (list '/ 1 a))  1)
                          ))
 
 (define (commute expr)
@@ -76,16 +78,16 @@
     [`(,op ,inv ,a)
      #:when (equal? ((eval (cadr (assoc op left-inverses))) a)
                     inv)
-     (cddr (assoc op left-inverses))]
+     (caddr (assoc op left-inverses))]
     [_ (list 'isnt-left-inverse expr)]
     ))
   
 (define (right-inverse expr)
   (match expr
     [`(,op ,a ,inv)
-     #:when (equal? ((eval (cadr (assoc op left-inverses))) a)
+     #:when (equal? ((eval (cadr (assoc op right-inverses))) a)
                     inv)
-     (cddr (assoc op left-inverses))]
+     (caddr (assoc op right-inverses))]
     [_ (list 'isnt-right-inverse expr)]
     ))
 
