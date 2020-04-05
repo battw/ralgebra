@@ -1,20 +1,25 @@
 #lang racket
+(define binary-ops '(+ * - /))
+(define unary-ops '(-))
+(define ops (append binary-ops unary-ops))
 
 (define commutative-ops '(+ *))
 (define left-distributive-ops '((* . +)))
-(define right-distributive-ops '((* . +)))
+(define right-distributive-ops '((* . +) (/ . +)))
 (define associative-ops '(+ *))
 (define left-identities '((+ . 0) (* . 1)))
-(define right-identities '((+ . 0) (* . 1)))
+(define right-identities '((+ . 0) (* . 1) (/ . 1)))
 ;; lists of
 ;; (operation function-giving-the-inverse-of-its-input resulting-identity)
 (define left-inverses '(
                         (+  (lambda (a) (list '- a))  0)
                         (*  (lambda (a) (list '/ 1 a))  1)
+                        (/  (lambda (a) a)  1)
                         ))
 (define right-inverses '(
                          (+  (lambda (a) (list '- a))  0)
                          (*  (lambda (a) (list '/ 1 a))  1)
+                         (/  (lambda (a) a)  1)
                          ))
 
 (define (commute expr)
@@ -95,7 +100,7 @@
 (define (f expr)
   (if (not (list? expr))
       expr
-      (match expr [`(,op ,l ,r) (list op (f l) (f r))])))
+      (match expr [`(,op ,a ,b) (list op (f a) (f b))])))
   
 
 (define (apply rule expr i)
@@ -104,17 +109,29 @@
     [(not (list? expr)) expr]
     [(= i 1) (rule expr)]
     [else
-     (match expr [`(,op ,l ,r) (list op
-                                     (apply rule  l (- i 1))
-                                     (apply rule r (- (- i 1) (size l)))
-                                     )])]))
+     (match expr
+       [`(,op ,a ,b) (list op
+                           (apply rule  a (- i 1))
+                           (apply rule b (- (- i 1) (size a)))
+                           )]
+       [_ (list 'no-match-in-apply expr)]
+       )]))
+
 
 (define (size expr)
-  ;; number of operators
-  (if (not (list? expr))
-      0
-      (match expr
-        [`(,op ,l ,r) (+ 1 (size l) (size r))])))
+  (let ([f (lambda (acc a)
+             (if (member a ops) (+ 1 acc) acc)
+             )])
+    (prefoldl f 0 expr)
+    ))
+
+(define (prefoldl f acc expr)
+  ;; left fold over an expression applying f in preorder
+  (match expr
+    [`(,op ,a ,b) (prefoldl f (prefoldl f (f acc op) a) b)]
+    [`(,op ,a) (prefoldl f (f acc op) a)]
+    [`,a (f acc a)]
+    ))
 
 (define (com expr i)
   (apply commute expr i))
