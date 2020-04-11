@@ -1,4 +1,6 @@
 #lang racket
+
+
 (define binary-ops '(+ * - /))
 (define unary-ops '(-))
 (define ops (append binary-ops unary-ops))
@@ -66,8 +68,8 @@
 
 (define (left-identity expr)
   (match expr
-    [`(,op, id ,sub)
-     #:when (member (cons id op) left-identities) sub]
+    [`(,op ,id ,sub)
+     #:when (member (cons op id) left-identities) sub]
     [_ (list 'isnt-left-identity expr)]
     ))
 
@@ -103,57 +105,84 @@
       (match expr [`(,op ,a ,b) (list op (f a) (f b))])))
   
 
-(define (apply rule expr i)
-  ;; apply the rule to the sub-expression at index i
+(define (employ rule expr i)
+  ;; employ the rule to the sub-expression at index i
   (cond
     [(not (list? expr)) expr]
     [(= i 1) (rule expr)]
     [else
      (match expr
        [`(,op ,a ,b) (list op
-                           (apply rule  a (- i 1))
-                           (apply rule b (- (- i 1) (size a)))
+                           (employ rule  a (- i 1))
+                           (employ rule b (- (- i 1) (size a)))
                            )]
-       [_ (list 'no-match-in-apply expr)]
+       [_ (list 'no-match-in-employ expr)]
        )]))
 
 
 (define (size expr)
-  (let ([f (lambda (acc a)
+  (let ([f (lambda (acc a ex)
              (if (member a ops) (+ 1 acc) acc)
              )])
     (prefoldl f 0 expr)
     ))
 
 (define (prefoldl f acc expr)
-  ;; left fold over an expression applying f in preorder
+  ;; a left fold over an expression applying f in preorder
   (match expr
-    [`(,op ,a ,b) (prefoldl f (prefoldl f (f acc op) a) b)]
-    [`(,op ,a) (prefoldl f (f acc op) a)]
-    [`,a (f acc a)]
+    [`(,op ,a ,b) (prefoldl f (prefoldl f (f acc op expr) a) b)]
+    [`(,op ,a) (prefoldl f (f acc op expr) a)]
+    [`,a (f acc a expr)]
     ))
 
+
+
 (define (com expr i)
-  (apply commute expr i))
+  (employ commute expr i))
 
 (define (ldis expr i)
-  (apply left-distribute expr i))
+  (employ left-distribute expr i))
 
 (define (rdis expr i)
-  (apply right-distribute expr i))
+  (employ right-distribute expr i))
 
 (define (ass expr i)
-  (apply associate expr i))
+  (employ associate expr i))
 
 (define (lid expr i)
-  (apply left-identity expr i))
+  (employ left-identity expr i))
 
 (define (rid expr i)
-  (apply right-identity expr i))
+  (employ right-identity expr i))
 
 (define (linv expr i)
-  (apply left-inverse expr i))
+  (employ left-inverse expr i))
 
 (define (rinv expr i)
-  (apply right-inverse expr i))
+  (employ right-inverse expr i))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;; TESTS ;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (run-tests)
+      (map
+       (lambda (test) (apply test '())) 
+       (list
+        (lambda () (equal? (com '(* x y) 1)
+                      '(* y x)))
+        (lambda () (equal? (ldis '(* x (+ y z)) 1)
+                      '(+ (* x y) (* x z))))
+        (lambda () (equal? (rdis '(* (+ 1 2) 3) 1)
+                      '(+ (* 1 3) (* 2 3))))
+        (lambda () (equal? (ass '(+ 1 (+ 2 3)) 1)
+                      '(+ (+ 1 2) 3)))
+        (lambda () (equal? (lid '(* 1 (+ 2 3)) 1)
+                      '(+ 2 3)))
+        (lambda () (equal? (rid '(/ (+ x 2) 1) 1)
+                      '(+ x 2)))
+         ;; (lambda () (linv '(+ (- 1) 1) 1))
+
+    )))
+
+(run-tests)
