@@ -13,15 +13,15 @@
 (define right-identities '((+ . 0) (* . 1) (/ . 1)))
 ;; lists of
 ;; (operation function-giving-the-inverse-of-its-input resulting-identity)
-(define left-inverses '(
-                        (+  (lambda (a) (list '- a))  0)
-                        (*  (lambda (a) (list '/ 1 a))  1)
-                        (/  (lambda (a) a)  1)
+(define left-inverses (list
+                        (list '+  (lambda (a) (list '- a))  0)
+                        (list '*  (lambda (a) (list '/ 1 a))  1)
+                        (list '/  (lambda (a) a)  1)
                         ))
-(define right-inverses '(
-                         (+  (lambda (a) (list '- a))  0)
-                         (*  (lambda (a) (list '/ 1 a))  1)
-                         (/  (lambda (a) a)  1)
+(define right-inverses (list
+                         (list '+  (lambda (a) (list '- a))  0)
+                         (list '*  (lambda (a) (list '/ 1 a))  1)
+                         (list '/  (lambda (a) a)  1)
                          ))
 
 (define (commute expr)
@@ -83,7 +83,7 @@
 (define (left-inverse expr)
   (match expr
     [`(,op ,inv ,a)
-     #:when (equal? ((eval (cadr (assoc op left-inverses))) a)
+     #:when (equal? ((cadr (assoc op left-inverses)) a)
                     inv)
      (caddr (assoc op left-inverses))]
     [_ (list 'isnt-left-inverse expr)]
@@ -92,7 +92,7 @@
 (define (right-inverse expr)
   (match expr
     [`(,op ,a ,inv)
-     #:when (equal? ((eval (cadr (assoc op right-inverses))) a)
+     #:when (equal? ((cadr (assoc op right-inverses)) a)
                     inv)
      (caddr (assoc op right-inverses))]
     [_ (list 'isnt-right-inverse expr)]
@@ -181,7 +181,10 @@
                       '(+ 2 3)))
         (lambda () (equal? (rid '(/ (+ x 2) 1) 1)
                       '(+ x 2)))
-         ;; (lambda () (linv '(+ (- 1) 1) 1))
+         (lambda () (equal? (linv '(+ (- 1) 1) 1)
+                       0))
+         (lambda () (equal? (rinv '(/ 5 5) 1)
+                       1))
 
     )))
 
