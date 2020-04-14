@@ -1,4 +1,5 @@
 #lang racket
+(require racket/trace)
 
 
 (define binary-ops '(+ * - /))
@@ -105,27 +106,26 @@
       (match expr [`(,op ,a ,b) (list op (f a) (f b))])))
   
 
-(define (employ rule expr i)
-  ;; employ the rule to the sub-expression at index i
-  (cond
-    [(not (list? expr)) expr]
-    [(= i 1) (rule expr)]
-    [else
-     (match expr
-       [`(,op ,a ,b) (list op
-                           (employ rule  a (- i 1))
-                           (employ rule b (- (- i 1) (size a)))
-                           )]
-       [_ (list 'no-match-in-employ expr)]
-       )]))
+(define (fsub f expr i)
+  ;; replace sub-expression at index i (preorder) with f(sub-expression)
+  (if (= i 1)
+      (f expr)
+      (match expr
+        [`(,op ,a, b) (list op (fsub f a (- i 1)) (fsub f b (- i (+ (size a) 1))))]
+        [`(,op ,a) (list op (fsub f a (- i 1)))]
+        [`,a a]
+        [_ (list 'no-match-in-fsub expr)]
+        )))
+
 
 
 (define (size expr)
-  (let ([f (lambda (acc a ex)
-             (if (member a ops) (+ 1 acc) acc)
-             )])
-    (prefoldl f 0 expr)
-    ))
+  ;; number of symbols in expr (not including brackets)
+  (prefoldl
+   (lambda (acc a expr) (+ 1 acc))
+   0
+   expr
+   ))
 
 (define (prefoldl f acc expr)
   ;; a left fold over an expression applying f in preorder
@@ -135,31 +135,31 @@
     [`,a (f acc a expr)]
     ))
 
-
+    
 
 (define (com expr i)
-  (employ commute expr i))
+  (fsub commute expr i))
 
 (define (ldis expr i)
-  (employ left-distribute expr i))
+  (fsub left-distribute expr i))
 
 (define (rdis expr i)
-  (employ right-distribute expr i))
+  (fsub right-distribute expr i))
 
 (define (ass expr i)
-  (employ associate expr i))
+  (fsub associate expr i))
 
 (define (lid expr i)
-  (employ left-identity expr i))
+  (fsub left-identity expr i))
 
 (define (rid expr i)
-  (employ right-identity expr i))
+  (fsub right-identity expr i))
 
 (define (linv expr i)
-  (employ left-inverse expr i))
+  (fsub left-inverse expr i))
 
 (define (rinv expr i)
-  (employ right-inverse expr i))
+  (fsub right-inverse expr i))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;; TESTS ;;;;;;;;;;;;;;;;;;;;
@@ -185,7 +185,13 @@
                        0))
          (lambda () (equal? (rinv '(/ 5 5) 1)
                        1))
+         (lambda () (equal? (com '(+ (/ 3 4) (* (- q) (+ r s))) 8)
+                       '(+ (/ 3 4) (* (- q) (+ s r)))))
+            
 
     )))
 
 (run-tests)
+
+;; (trace com fsub commute prefoldl)
+;; (com '(+ (/ 3 4) (* (- q) (+ r s))) 5)
