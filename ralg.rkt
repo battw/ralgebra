@@ -35,7 +35,8 @@
 
 
 (define (inverse expr . op)
-  (if (null? op)
+  ;; (if (null? op)
+  (if (equal? op '())
       (match expr
         [`(+ (* -1 ,a) ,a) 0]
         [`(* (/ 1 ,a) ,a) 1]
@@ -49,10 +50,10 @@
   
 
 
-(define (fsub i f expr)
+(define (fsub i f expr . args)
   ;; replace sub-expression at index i (preorder) with f(sub-expression)
   (if (= i 1)
-      (f expr)
+      (apply f (cons expr args))
       (match expr
         [`(,op ,a, b) (list op (fsub (- i 1) f  a) (fsub (- i (+ (size a) 1)) f b ))]
         [`(,op ,a) (list op (fsub (- i 1) f a ))]
@@ -93,7 +94,7 @@
   (fsub i ident expr))
 
 (define (inv i expr . op)
-  (fsub i inverse (list expr op)))
+  (apply fsub (cons i (cons inverse (cons expr op)))))
  
 (define (ev i expr)
   (fsub i eval expr))
@@ -101,6 +102,7 @@
 
 
 
+(trace inv fsub inverse)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;; TESTS ;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -117,6 +119,8 @@
                       '(+ (+ 1 2) 3)))
         (lambda () (equal? (id 1 '(* 1 (+ 2 3)))
                       '(+ 2 3)))
+         (lambda () (equal? (inv 1 'x '+) 
+                       '(+ (* -1 x) x)))
          (lambda () (equal? (inv 1 '(+ (* -1 2) 2))
                        0))
 
@@ -129,7 +133,6 @@
 
 (run-tests)
 
-;; (trace com fsub commute prefoldl)
 ;; (com '(+ (/ 3 4) (* (- q) (+ r s))) 5)
 
 
