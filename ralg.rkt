@@ -26,27 +26,31 @@
     [_ (list 'does-not-associate expr)]
     ))
 
-(define (ident expr)
-  (match expr
-    [`(+ 0 ,a) a]
-    [`(* 1 ,a) a]
-    [_ (list 'isnt-left-identity expr)]
-    ))
+(define (ident expr . op)
+  (if (null? op)
+      (match expr
+        [`(+ 0 ,a) a]
+        [`(* 1 ,a) a]
+        [_ (list 'isnt-left-identity expr)]
+        )
+      (match op
+        ['(+) (list '= expr (list '+ 0 expr))]
+        ['(*) (list '= expr (list '* 1 expr))]
+        [_ (list 'isnt-left-identity expr)]
+      )))
 
 
 (define (inverse expr . op)
-  ;; (if (null? op)
-  (if (equal? op '())
+  (if (null? op)
       (match expr
         [`(+ (* -1 ,a) ,a) 0]
-        [`(* (/ 1 ,a) ,a) 1]
+        [`(* (^ ,a -1) ,a) 1]
         [_ (list 'isnt-inverse expr)])
       (match op
-        ['(+) (list '+ (list '* -1 expr) expr)]
-        ['(*) (list '* (list '/ 1 expr) expr)]
+        ['(+) (list '= 0 (list '+ (list '* -1 expr) expr))]
+        ['(*) (list '= 1 (list '* (list '^ expr -1) expr))]
+        [_ (list 'no-inverse expr)]
       )))
-
-  
   
 
 
@@ -90,8 +94,8 @@
 (define (ass i expr)
   (fsub i associate expr))
 
-(define (id i expr)
-  (fsub i ident expr))
+(define (id i expr . op)
+  (apply fsub (cons i (cons ident (cons expr op)))))
 
 (define (inv i expr . op)
   (apply fsub (cons i (cons inverse (cons expr op)))))
@@ -102,7 +106,7 @@
 
 
 
-(trace inv fsub inverse)
+;; (trace inv fsub inverse)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;; TESTS ;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -119,8 +123,10 @@
                       '(+ (+ 1 2) 3)))
         (lambda () (equal? (id 1 '(* 1 (+ 2 3)))
                       '(+ 2 3)))
+        (lambda () (equal? (id 1 '(+ 1 1) '+)
+                      '(= (+ 1 1) (+ 0 (+ 1 1)))))
          (lambda () (equal? (inv 1 'x '+) 
-                       '(+ (* -1 x) x)))
+                       '(= 0 (+ (* -1 x) x))))
          (lambda () (equal? (inv 1 '(+ (* -1 2) 2))
                        0))
 
@@ -131,11 +137,8 @@
 
     )))
 
-(run-tests)
-
-;; (com '(+ (/ 3 4) (* (- q) (+ r s))) 5)
-
-
-
-
+(let ([results (run-tests)])
+  (if (andmap identity results)
+    (println "PASSED")
+    (println (format "FAILED: ~a" results))))
 
