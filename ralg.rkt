@@ -76,7 +76,39 @@
     [`(,op ,a) (prefoldl f (f acc op expr) a)]
     [`,a (f acc a expr)]))
 
-    
+;; (define (bind ex1 ex2)    
+;;   ;; TODO cond not exhaustive 
+;;   (cond
+;;     [(null? ex1) '()]
+;;     [(not (list? ex1)) `((,ex1 . ,ex2))]
+;;     [else (append
+;;            (bind (car ex1) (car ex2))
+;;            (bind (cdr ex1) (cdr ex2)))]))
+
+;; (define (bind ex1 ex2)    
+;;   (match ex1
+;;     ['() '()]
+;;     [`(,x . ,xs) (append
+;;            (bind x (car ex2))
+;;            (bind xs (cdr ex2)))]
+;;     [_ `((,ex1 . , ex2))]))
+
+(define (bind ex1 ex2)    
+  ;; Binds atoms in ex1 to corresponding expressions in ex2,
+  ;; if there is a correspondence.
+  (match `(,ex1 . ,ex2)
+    ['(() . ()) '()]
+    [`((,x . ,xs) . (,y . ,ys))
+     (append
+      (bind x y)
+      (bind xs ys))]
+    [`(,ex1 . ,ex2) #:when (atom? ex1) `((,ex1 . ,ex2))]
+    [_ (error (format "cannot bind ~a and ~a" ex1 ex2))]))
+
+  
+(define (atom? expr)
+  (or (symbol? expr) (number? expr)))
+      
 
 (define (com i expr)
   (transform i commute expr))
@@ -151,10 +183,11 @@
          (lambda () (equal? (com 9 '(* (+ 3  4) (* (* -1 q) (+ (* 2 1) s))))
                        '(* (+ 3 4) (* (* -1 q) (+ s (* 2 1))))))
 
+         (lambda () (equal? (bind '(+ (& a 2) (* b c)) '(* (/ f g) (- y (* z q))))
+                       '((+ . *) (& . /) (a . f) (2 . g) (* . -) (b . y) (c * z q))))
     )))
 
 (let ([results (run-tests)])
   (if (andmap identity results)
     (println "PASSED")
     (println (format "FAILED: ~a" results))))
-
