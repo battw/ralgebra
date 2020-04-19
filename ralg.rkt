@@ -4,23 +4,23 @@
 
 (define (commute expr)
   (match expr
-    [`(+ ,a ,b) (list '+ b a)]
-    [`(* ,a ,b) (list '* b a)]
+    [`(+ ,a ,b) `(+ ,b ,a)]
+    [`(* ,a ,b) `(* ,b ,a)]
     [_ (raise-user-error (format "~a does not commute" expr))]))
 
 (define (distribute expr)
     (match expr
-      [`(* ,a (+ ,b ,c)) (list '+ (list '* a b) (list '* a c))]
-      [`(+ (* ,a ,b) (* ,a ,c)) (list '* a (list '+ b c))]
+      [`(* ,a (+ ,b ,c))        `(+ (* ,a ,b) (* ,a ,c))]
+      [`(+ (* ,a ,b) (* ,a ,c)) `(* ,a (+ ,b ,c))]
       [_ (raise-user-error (format "~a does not distribute" expr))]))
 
 
 (define (associate expr)
   (match expr
-    [`(+ (+ ,a ,b) ,c) (list '+ a (list '+ b c))]  
-    [`(* (* ,a ,b) ,c) (list '* a (list '* b c))]
-    [`(+ ,a (+ ,b ,c)) (list '+ (list '+ a b) c)]
-    [`(* ,a (* ,b ,c)) (list '* (list '* a b) c)]
+    [`(+ (+ ,a ,b) ,c) `(+ ,a (+ ,b ,c))]  
+    [`(* (* ,a ,b) ,c) `(* ,a (* ,b ,c))]
+    [`(+ ,a (+ ,b ,c)) `(+ (+ ,a ,b) ,c)]
+    [`(* ,a (* ,b ,c)) `(* (* ,a ,b) ,c)]
     [_ (raise-user-error (format "~a does not associate" expr))]))
 
 (define (ident expr . op)
@@ -30,8 +30,8 @@
         [`(* 1 ,a) a]
         [_ (raise-user-error (format "~a not identity" expr))])
       (match op
-        ['(+) (list '= expr (list '+ 0 expr))]
-        ['(*) (list '= expr (list '* 1 expr))]
+        ['(+) `(= ,expr (+ 0 ,expr))]
+        ['(*) `(= ,expr (* 1 ,expr))]
         [_ (raise-user-error (format "~a doesn't have identity" expr))])))
 
 
@@ -42,8 +42,8 @@
         [`(* (^ ,a -1) ,a) 1]
         [_ (raise-user-error (format "~a not inverse" expr))])
       (match op
-        ['(+) (list '= 0 (list '+ (list '* -1 expr) expr))]
-        ['(*) (list '= 1 (list '* (list '^ expr -1) expr))]
+        ['(+) `(= 0 (+ (* -1 ,expr) ,expr))]
+        ['(*) `(= 1 (* (^ ,expr -1) ,expr))]
         [_ (raise-user-error (format "~a doesn't have inverse" op))])))
   
 
