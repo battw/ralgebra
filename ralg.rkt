@@ -6,13 +6,13 @@
   (match expr
     [`(+ ,a ,b) (list '+ b a)]
     [`(* ,a ,b) (list '* b a)]
-    [_ (list 'does-not-commute expr)]))
+    [_ (raise-user-error (format "~a does not commute" expr))]))
 
 (define (distribute expr)
     (match expr
       [`(* ,a (+ ,b ,c)) (list '+ (list '* a b) (list '* a c))]
       [`(+ (* ,a ,b) (* ,a ,c)) (list '* a (list '+ b c))]
-      [_ (list 'does-not-distribute expr)]))
+      [_ (raise-user-error (format "~a does not distribute" expr))]))
 
 
 (define (associate expr)
@@ -21,18 +21,18 @@
     [`(* (* ,a ,b) ,c) (list '* a (list '* b c))]
     [`(+ ,a (+ ,b ,c)) (list '+ (list '+ a b) c)]
     [`(* ,a (* ,b ,c)) (list '* (list '* a b) c)]
-    [_ (list 'does-not-associate expr)]))
+    [_ (raise-user-error (format "~a does not associate" expr))]))
 
 (define (ident expr . op)
   (if (null? op)
       (match expr
         [`(+ 0 ,a) a]
         [`(* 1 ,a) a]
-        [_ (list 'isnt-identity expr)])
+        [_ (raise-user-error (format "~a not identity" expr))])
       (match op
         ['(+) (list '= expr (list '+ 0 expr))]
         ['(*) (list '= expr (list '* 1 expr))]
-        [_ (list 'doesn't-have-identity expr)])))
+        [_ (raise-user-error (format "~a doesn't have identity" expr))])))
 
 
 (define (inverse expr . op)
@@ -40,11 +40,11 @@
       (match expr
         [`(+ (* -1 ,a) ,a) 0]
         [`(* (^ ,a -1) ,a) 1]
-        [_ (list 'isnt-inverse expr)])
+        [_ (raise-user-error (format "~a not inverse" expr))])
       (match op
         ['(+) (list '= 0 (list '+ (list '* -1 expr) expr))]
         ['(*) (list '= 1 (list '* (list '^ expr -1) expr))]
-        [_ (list 'no-inverse expr)])))
+        [_ (raise-user-error (format "~a doesn't have inverse" op))])))
   
 
 
@@ -58,7 +58,7 @@
                             (transform (- i (+ (size a) 1)) f b ))]
         [`(,op ,a) (list op (transform (- i 1) f a ))]
         [`,a a]
-        [_ (list 'no-match-in-transform expr)])))
+        [_ (raise-user-error 'transform "no match for ~a" expr)])))
 
 
 
@@ -76,26 +76,9 @@
     [`(,op ,a) (prefoldl f (f acc op expr) a)]
     [`,a (f acc a expr)]))
 
-;; (define (bind ex1 ex2)    
-;;   ;; TODO cond not exhaustive 
-;;   (cond
-;;     [(null? ex1) '()]
-;;     [(not (list? ex1)) `((,ex1 . ,ex2))]
-;;     [else (append
-;;            (bind (car ex1) (car ex2))
-;;            (bind (cdr ex1) (cdr ex2)))]))
-
-;; (define (bind ex1 ex2)    
-;;   (match ex1
-;;     ['() '()]
-;;     [`(,x . ,xs) (append
-;;            (bind x (car ex2))
-;;            (bind xs (cdr ex2)))]
-;;     [_ `((,ex1 . , ex2))]))
 
 (define (bind ex1 ex2)    
-  ;; Binds atoms in ex1 to corresponding expressions in ex2,
-  ;; if there is a correspondence.
+  ;; Binds atoms in ex1 to corresponding expressions in ex2.
   (match `(,ex1 . ,ex2)
     ['(() . ()) '()]
     [`((,x . ,xs) . (,y . ,ys))
@@ -103,7 +86,7 @@
       (bind x y)
       (bind xs ys))]
     [`(,ex1 . ,ex2) #:when (atom? ex1) `((,ex1 . ,ex2))]
-    [_ (error (format "cannot bind ~a and ~a" ex1 ex2))]))
+    [_ (raise-user-error 'bind "cannot bind ~a and ~a" ex1 ex2)]))
 
   
 (define (atom? expr)
