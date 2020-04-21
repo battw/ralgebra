@@ -1,6 +1,9 @@
 #lang racket
 (require racket/trace)
+(require racket/bool)
 
+
+(define operators '(* + ^ -))
 
 (define (commute expr)
   (match expr
@@ -18,8 +21,8 @@
 (define (associate expr)
   (match expr
     [`(+ (+ ,a ,b) ,c) `(+ ,a (+ ,b ,c))]  
-    [`(* (* ,a ,b) ,c) `(* ,a (* ,b ,c))]
     [`(+ ,a (+ ,b ,c)) `(+ (+ ,a ,b) ,c)]
+    [`(* (* ,a ,b) ,c) `(* ,a (* ,b ,c))]
     [`(* ,a (* ,b ,c)) `(* (* ,a ,b) ,c)]
     [_ (raise-user-error (format "~a does not associate" expr))]))
 
@@ -63,7 +66,7 @@
 
 
 (define (size expr)
-  ;; number of symbols in expr (not including brackets)
+  ;; number of atoms (symbols, operators, numbers) in expr 
   (prefoldl
    (lambda (acc a expr) (+ 1 acc))
    0
@@ -79,19 +82,55 @@
 
 (define (bind ex1 ex2)    
   ;; Binds atoms in ex1 to corresponding expressions in ex2.
-  (match `(,ex1 . ,ex2)
-    ['(() . ()) '()]
-    [`((,x . ,xs) . (,y . ,ys))
-     (append
-      (bind x y)
-      (bind xs ys))]
-    [`(,ex1 . ,ex2) #:when (atom? ex1) `((,ex1 . ,ex2))]
-    [_ (raise-user-error 'bind "cannot bind ~a and ~a" ex1 ex2)]))
+  (letrec ([bind
+            (lambda (ex1 ex2)
+              (match `(,ex1 . ,ex2)
+                ['(() . ()) '()]
+                [`((,x . ,xs) . (,y . ,ys))
+                 (append
+                  (bind x y)
+                  (bind xs ys))]
+                [`(,ex1 . ,ex2)  `((,ex1 . ,ex2))]))]
+           [valid-binding?
+            (lambda (l r)
+              (and (atom? l)
+                   (implies (number? l) (equal? l r))
+                   (implies (operator? l) (equal? l r))
+                   (implies (variable? l) (expression? r))))]
+           [check
+            (lambda (bindings)
+              (map
+               (lambda (binding)
+                 (match binding
+                   [`(,l . ,r) #:when (valid-binding? l r) `(,l . ,r)]
+                   [_  (raise-user-error (format "invalid binding: ~a" binding))]))
+               bindings))]
+           [trim ;; remove bindings with numbers or operators on left
+            (lambda (bindings)
+              (filter
+               (lambda (binding) (not (or
+                             (member (car binding) operators)
+                             (number? (car binding)))))
+               bindings))])
+    
+
+    (trim (check (bind ex1 ex2)))))
+
 
   
 (define (atom? expr)
   (or (symbol? expr) (number? expr)))
       
+(define (operator? expr)
+  (member expr operators))
+
+(define (variable? expr)
+  (and (symbol? expr) (not (operator? expr))))
+
+;; TODO implement this
+(define (expression? expr)
+  #t)
+    
 
 (define (com i expr)
   (transform i commute expr))
@@ -166,10 +205,9 @@
          (lambda () (equal? (com 9 '(* (+ 3  4) (* (* -1 q) (+ (* 2 1) s))))
                        '(* (+ 3 4) (* (* -1 q) (+ s (* 2 1))))))
 
-         (lambda () (equal? (bind '(+ (& a 2) (* b c)) '(* (/ f g) (- y (* z q))))
-                       '((+ . *) (& . /) (a . f) (2 . g) (* . -) (b . y) (c * z q))))
+         (lambda () (equal? (bind '(+ (* a g) (* b c)) '(+ (* f 2) (* y (* z q))))
+                       '((a . f) (g . 2) (b . y) (c * z q))))
     )))
-
 (let ([results (run-tests)])
   (if (andmap identity results)
     (println "PASSED")
