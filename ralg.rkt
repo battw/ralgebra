@@ -1,6 +1,7 @@
 #lang racket
 (require racket/trace)
 (require racket/bool)
+(require (file "tree.rkt"))
 
 
 (define operators '(* + ^ -))
@@ -64,20 +65,9 @@
         [_ (raise-user-error 'transform "no match for ~a" expr)])))
 
 
-
 (define (size expr)
   ;; number of atoms (symbols, operators, numbers) in expr 
-  (prefoldl
-   (lambda (acc a expr) (+ 1 acc))
-   0
-   expr))
-
-(define (prefoldl f acc expr)
-  ;; a left fold over an expression applying f in preorder
-  (match expr
-    [`(,op ,a ,b) (prefoldl f (prefoldl f (f acc op expr) a) b)]
-    [`(,op ,a) (prefoldl f (f acc op expr) a)]
-    [`,a (f acc a expr)]))
+  (tfoldr (lambda (x acc) (add1 acc)) 0 expr))
 
 
 (define (bind ex1 ex2)    
@@ -172,7 +162,6 @@
         (lambda () (equal? (dis 1 '(+ (* x y) (* x z)))
                            '(* x (+ y z))))
         
-
         (lambda () (equal? (ass 1 '(+ 1 (+ 2 3)))
                       '(+ (+ 1 2) 3)))
         (lambda () (equal? (ass 1 '(+ (+ 1 2) 3))
@@ -210,5 +199,5 @@
     )))
 (let ([results (run-tests)])
   (if (andmap identity results)
-    (println "PASSED")
-    (println (format "FAILED: ~a" results))))
+    (println "ralg.rkt PASSED")
+    (println (format "ralg.rkt FAILED: ~a" results))))

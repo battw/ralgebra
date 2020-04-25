@@ -1,22 +1,21 @@
 #lang racket
-
+(provide tfoldr)
 
 (define tfoldr
   (case-lambda
     [(f init t)
-     (let rec ([acc init] [t t])
+     [let rec ([t t] [acc init])
        (cond
          [(null? t) acc]
-         [(list? (car t)) (rec (rec acc (cdr t)) (car t))]
-         [else (f (car t) (rec acc (cdr t)))]))]
+         [(not (list? t)) (f t acc)]
+         [else (rec (car t) (rec (cdr t) acc))])]]
     [(f init t . ts)
-     (let rec ([acc init] [ts (cons t ts)])
+     [let rec ([ts (cons t ts)] [acc init])
        (cond
          [(null? (car ts)) acc]
-         [(list? (car (car ts)))
-          (rec (rec acc (map cdr ts)) (map car ts))]
-         [else (apply f `(,@(map car ts) ,(rec acc (map cdr ts))))]
-         ))]))
+         [(not (list? (car ts))) (apply f `(,@ts ,acc))]
+         [else (rec (map car ts) (rec (map cdr ts) acc))])]]))
+
     
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;; TESTS ;;;;;;;;;;;;;;;;;
@@ -35,10 +34,29 @@
                  '()
                  '(a (b c) ((d e) f)) '((1 1) (2 3) ((4 (5 5)) 6)))
                 '((a 1 1) (b . 2) (c . 3) (d . 4) (e 5 5) (f . 6))))
+         (lambda () (equal?
+                (tfoldr
+                 (lambda (x acc) (add1 acc))
+                 0
+                 '(* (+ 3  4) (* (* -1 q) (+ (* 2 1) s))))
+                13))
+         (lambda () (equal?
+                (tfoldr
+                 (lambda (x acc) (cons x acc))
+                 '()
+                 'a)
+                '(a)))
+         (lambda () (equal?
+                (tfoldr
+                 (lambda (x y acc) (cons (cons x y) acc))
+                 '()
+                 'a
+                 1)
+                '((a . 1))))
+            
     )))
 
 (let ([results (run-tests)])
   (if (andmap identity results)
     (println "tree.rkt PASSED")
-    (println (format "FAILED: ~a" results))))
-
+    (println (format "tree.rkt FAILED: ~a" results))))
