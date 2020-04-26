@@ -128,9 +128,20 @@
         '())))
         
   
+;; (define (substitute equality expr)
+;;   (let ([binding (bind (lhs equality expr))])
+    
+  
+  
+(define (lhs expr)
+  (match expr
+    [`(,op ,l ,r) l]
+    [_ (raise-user-error (format "~a has no left hand side" expr))]))
 
-
-
+(define (rhs expr)
+  (match expr
+    [`(,op ,l ,r) r]
+    [_ (raise-user-error (format "~a has no left hand side" expr))]))
   
 (define (atom? expr)
   (or (symbol? expr) (number? expr)))

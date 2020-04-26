@@ -16,7 +16,22 @@
          [(not (list? (car ts))) (apply f `(,@ts ,acc))]
          [else (rec (map car ts) (rec (map cdr ts) acc))])]]))
 
-    
+(define (tmap f t)
+  (cond
+    [(null? t) '()]
+    [(list? t) (cons (tmap f (car t)) (tmap f (cdr t)))]
+    [else (f t)]))
+  
+(define (tmapi f t)
+  (let rec ([i 1] [t t])
+    (cond
+      [(null? t) '()]
+      [(list? t) (cons (rec i (car t)) (rec (+ i (tsize (car t))) (cdr t)))]
+      [else (f i t)])))
+ 
+(define (tsize expr)
+  (tfoldr (lambda (x acc) (add1 acc)) 0 expr))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;; TESTS ;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -53,7 +68,27 @@
                  'a
                  1)
                 '((a . 1))))
-            
+         (lambda () (equal?
+                     (tmap
+                      add1
+                      '(1 (2 3) ((4 5) 6) 7))
+                     '(2 (3 4) ((5 6) 7) 8)))
+         (lambda () (equal?
+                     (tmap
+                      add1
+                      '())
+                     '()))
+         (lambda () (equal?
+                     (tmap
+                      add1
+                      3)
+                     4))
+         (lambda () (equal?
+                     (tmapi
+                      (lambda (i x) (if (= i 3) 'Q x))
+                      '(1 (2 3) ((4 5) 6) 7))
+                      '(1 (2 Q) ((4 5) 6) 7)))
+                      
     )))
 
 (let ([results (run-tests)])
