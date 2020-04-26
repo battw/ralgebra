@@ -69,42 +69,66 @@
   ;; number of atoms (symbols, operators, numbers) in expr 
   (tfoldr (lambda (x acc) (add1 acc)) 0 expr))
 
-
-(define (bind ex1 ex2)    
+;; TODO variable renaming for names which occur in both expressions 
+(define (match-bind ex1 ex2)    
   ;; Binds atoms in ex1 to corresponding expressions in ex2.
-  (letrec ([bind
-            (lambda (ex1 ex2)
-              (match `(,ex1 . ,ex2)
-                ['(() . ()) '()]
-                [`((,x . ,xs) . (,y . ,ys))
-                 (append
-                  (bind x y)
-                  (bind xs ys))]
-                [`(,ex1 . ,ex2)  `((,ex1 . ,ex2))]))]
-           [valid-binding?
-            (lambda (l r)
-              (and (atom? l)
-                   (implies (number? l) (equal? l r))
-                   (implies (operator? l) (equal? l r))
-                   (implies (variable? l) (expression? r))))]
-           [check
-            (lambda (bindings)
-              (map
-               (lambda (binding)
-                 (match binding
-                   [`(,l . ,r) #:when (valid-binding? l r) `(,l . ,r)]
-                   [_  (raise-user-error (format "invalid binding: ~a" binding))]))
-               bindings))]
-           [trim ;; remove bindings with numbers or operators on left
-            (lambda (bindings)
-              (filter
-               (lambda (binding) (not (or
-                             (member (car binding) operators)
-                             (number? (car binding)))))
-               bindings))])
-    
+  ;; Throws errors if the structure of the expressions don't match.
+  ;; Binds are returned that the list indexes of the bindings correspond
+  ;; to their preorder index in ex1. 
+  (define (bind ex1 ex2)
+    (tfoldr
+     (lambda (x y acc) (cons (cons x y) acc))
+     '()
+     ex1
+     ex2))
 
-    (trim (check (bind ex1 ex2)))))
+  (define (valid? bindings)
+    ;; for each binding (l . r)
+    ;;    l must be an atom and
+    ;;       if l is a number then r is the same number
+    ;;       if l is an operator then r is the same operator
+    ;;       if l is a variable then r is a well formed algebraic expression
+    (andmap
+     (lambda (binding)
+       (match binding
+         [`(,l . ,r)
+          #:when (and (atom? l)
+                      (implies (number? l) (equal? l r))
+                      (implies (operator? l) (equal? l r))
+                      (implies (variable? l) (expression? r)))
+          #t]
+         [_ (raise-user-error (format "invalid binding: ~a" binding))]))
+     bindings))
+
+  (define (consistent? bindings)
+    ;; for any two bindings, if (x . y) and (x . z) then y = z.
+    ;; TODO formally define = in the above condition and in the implementation
+    (andmap
+     (lambda (binding)
+       (match binding
+         [`(,l . ,r)
+          (implies (variable? l) 
+                   (andmap
+                    (lambda (bindingg)
+                      (match bindingg
+                        [`(,ll . ,rr)
+                         #:when (implies (equal? ll l)
+                                         (equal? rr r))
+                         #t]
+                        [_ (raise-user-error (format 
+                                             "inconsistent bindings ~a and ~a"
+                                             binding bindingg))]))          
+                    bindings))]
+         [_ (raise-user-error (format "inconsistent bindings ~a" bindings))]))
+     bindings))
+
+  (let ([bindings (bind ex1 ex2)])
+    (if (and (valid? bindings) (consistent? bindings))
+        bindings
+        '())))
+        
+  
+
 
 
   
@@ -180,22 +204,31 @@
         (lambda () (equal? (id 1 '(+ 1 1) '*)
                       '(= (+ 1 1) (* 1 (+ 1 1)))))
 
-         (lambda () (equal? (inv 1 '(+ (* -1 2) 2))
-                       0))
-         (lambda () (equal? (inv 1 '(* (^ 2 -1) 2))
-                       1))
-         (lambda () (equal? (inv 1 'x '+) 
-                       '(= 0 (+ (* -1 x) x))))
-         (lambda () (equal? (inv 1 'x '*) 
-                       '(= 1 (* (^ x -1) x))))
+        (lambda () (equal? (inv 1 '(+ (* -1 2) 2))
+                           0))
+        (lambda () (equal? (inv 1 '(* (^ 2 -1) 2))
+                           1))
+        (lambda () (equal? (inv 1 'x '+) 
+                           '(= 0 (+ (* -1 x) x))))
+        (lambda () (equal? (inv 1 'x '*) 
+                           '(= 1 (* (^ x -1) x))))
 
-         (lambda () (equal? (size '(* (* -1 (+ a 2)) (* (* -1 x) (* q (* w 3)))))
-                       15))
-         (lambda () (equal? (com 9 '(* (+ 3  4) (* (* -1 q) (+ (* 2 1) s))))
-                       '(* (+ 3 4) (* (* -1 q) (+ s (* 2 1))))))
+        (lambda () (equal? (size '(* (* -1 (+ a 2)) (* (* -1 x) (* q (* w 3)))))
+                           15))
+        (lambda () (equal? (com 9 '(* (+ 3  4) (* (* -1 q) (+ (* 2 1) s))))
+                           '(* (+ 3 4) (* (* -1 q) (+ s (* 2 1))))))
 
-         (lambda () (equal? (bind '(+ (* a g) (* b c)) '(+ (* f 2) (* y (* z q))))
-                       '((a . f) (g . 2) (b . y) (c * z q))))
+        (lambda () (equal? (match-bind '(+ (* a g) (* b c)) '(+ (* f 2) (* y (* z q))))
+                           '((+ . +) (* . *) (a . f) (g . 2) (* . *) (b . y) (c * z q))))
+        (lambda () (equal? #t
+                           (with-handlers ([exn:fail:user? (lambda (exn) #t)])
+                             (match-bind '(+ x 1) '(+ x 2)))))
+        (lambda () (equal? #t
+                           (with-handlers ([exn:fail:user? (lambda (exn) #t)])
+                             (match-bind '(+ x x) '(+ 2 3)))))
+        (lambda () (equal? #t
+                           (with-handlers ([exn:fail:user? (lambda (exn) #t)])
+                             (match-bind '(+ x x) '(+ (+ 2 3) (+ 3 2))))))
     )))
 (let ([results (run-tests)])
   (if (andmap identity results)
