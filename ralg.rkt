@@ -53,7 +53,7 @@
 
 
 (define (transform i f expr . args)
-  ;; replace sub-expression at index i (preorder) with f(sub-expression)
+  ;; replace sub-expression at index i with f(sub-expression)
   (if (= i 1)
       (apply f (cons expr args))
       (match expr
@@ -74,7 +74,7 @@
   ;; Binds atoms in ex1 to corresponding expressions in ex2.
   ;; Throws errors if the structure of the expressions don't match.
   ;; Binds are returned that the list indexes of the bindings correspond
-  ;; to their preorder index in ex1. 
+  ;; to their index in ex1. 
   (define (bind ex1 ex2)
     (tfoldr
      (lambda (x y acc) (cons (cons x y) acc))
