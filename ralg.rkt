@@ -66,8 +66,8 @@
 
 
 (define (size expr)
-  ;; number of atoms (symbols, operators, numbers) in expr 
-  (tfoldr (lambda (x acc) (add1 acc)) 0 expr))
+  ;; number of atoms (non lists) in expr 
+  (num-leafs expr))
 
 ;; TODO variable renaming for names which occur in both expressions 
 (define (match-bind ex1 ex2)    
@@ -76,7 +76,7 @@
   ;; Binds are returned that the list indexes of the bindings correspond
   ;; to their index in ex1. 
   (define (bind ex1 ex2)
-    (tfoldr
+    (leaf-foldr
      (lambda (x y acc) (cons (cons x y) acc))
      '()
      ex1
