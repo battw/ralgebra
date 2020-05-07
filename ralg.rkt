@@ -69,7 +69,7 @@
   ;; number of atoms (non lists) in expr 
   (num-leafs expr))
 
-;; TODO variable renaming for names which occur in both expressions 
+;; TODO warning or error for names which occur in both expressions 
 (define (match-bind ex1 ex2)    
   ;; Binds atoms in ex1 to corresponding expressions in ex2.
   ;; Throws errors if the structure of the expressions don't match.
@@ -128,10 +128,18 @@
         '())))
         
   
-;; (define (substitute equality expr)
-;;   (let ([binding (bind (lhs equality expr))])
-    
+(define (substitute binding expr)
+    (leaf-map
+     (lambda (a)
+       (let ([bound (assoc a binding)])
+         (if bound
+             (cdr bound)
+             a)))
+     expr))
   
+(define (rewrite equality expr)
+  (substitute (match-bind (lhs equality) expr)
+              (rhs equality)))
   
 (define (lhs expr)
   (match expr
@@ -178,7 +186,6 @@
 
 
 
-;; (trace inv transform inverse)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;; TESTS ;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -240,6 +247,17 @@
         (lambda () (equal? #t
                            (with-handlers ([exn:fail:user? (lambda (exn) #t)])
                              (match-bind '(+ x x) '(+ (+ 2 3) (+ 3 2))))))
+
+        (lambda () (equal? (rewrite '(= (+ a b) (+ b a)) '(+ 1 2))
+                           '(+ 2 1)))
+        (lambda () (equal? (rewrite '(= a (* 1 a)) '(+ 1 2))
+                           '(* 1 (+ 1 2))))
+        (lambda () (equal? (rewrite '(= (* x 1) x) '(* 5 1))
+                           5))
+        (lambda () (equal? (rewrite '(= (* p (+ q r)) (+ (* p q) (* p r)))
+                                      '(* 4 (+ (* 5 5) 6)))
+                           '(+ (* 4 (* 5 5)) (* 4 6))))
+        
     )))
 (let ([results (run-tests)])
   (if (andmap identity results)
